@@ -9,7 +9,9 @@
 
 <body>
     <span id="toTop" class="toTop"></span>
-    <script type="text/javascript" src="js/scrollToTop.js"></script>
+    <div id="title"></div>
+    <script src="https://cdn.bootcss.com/rxjs/6.0.0-alpha.3/Rx.min.js"></script>
+    <!-- <script type="text/javascript" src="js/scrollToTop.js"></script>
     <script>
     // ie7 下传入元素 ie8 及以上可以传入选择符字符串
     var topElement = document.getElementById("toTop");
@@ -17,6 +19,43 @@
         showWhen: 200,
         speed: 200
     })
+    </script> -->
+    <script>
+        const docEle = document.documentElement
+        const titleElm = document.querySelector('#title');
+        const toTop = document.getElementById("toTop");
+        toTop.style.opacity = 0   // ...1
+
+        function lerp(start, end) {
+            var y = start.y + end
+            return { y }
+        }
+        const Scroll$ = Rx.Observable
+            .fromEvent(window, 'scroll')
+            .debounceTime(16.7)
+            .filter(() => docEle.scrollTop >= 100)
+            .map(() => ({y: docEle.scrollTop}))
+            .do(() => {
+                titleElm.innerHTML = `${docEle.scrollTop}`
+            })
+        Scroll$.subscribe()
+
+        const animationFrame$ = Rx.Observable.interval(0, Rx.Scheduler.animationFrame);
+        const smoothMove$ = animationFrame$
+            .withLatestFrom(Scroll$, (frame, moveY) => { 
+                return moveY
+            })
+            .scan((current, next) => lerp(current, 10))
+            .map((move) => {
+                console.log(move.y)
+                if (move.y >= 100) { // .... 2
+                    toTop.style.opacity = (move.y - 100)/ 100
+                    return move.y - 100
+                }
+                return move.y
+            })
+            .takeWhile(n => n <= 100)
+        smoothMove$.subscribe()
     </script>
 </body>
 

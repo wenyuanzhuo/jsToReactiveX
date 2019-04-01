@@ -52,31 +52,32 @@
 
 
     var util = {
-        extend: function(target) {
-            for (var i = 1, len = arguments.length; i < len; i++) {
-                for (var prop in arguments[i]) {
-                    if (arguments[i].hasOwnProperty(prop)) {
-                        target[prop] = arguments[i][prop]
+        extend: function(target) { // 拷贝
+            var obj = Array.prototype.slice.call(arguments, 1)
+            for (var i = 0; i < obj.length; i++) {
+                for (var prop in obj[i]) {
+                    if (obj[i].hasOwnProperty(prop)) {
+                        target[prop] = obj[i][prop]
                     }
                 }
             }
 
             return target
         },
-        getStyle: function(element, prop) {
+        getStyle: function(element, prop) {// 获取外部样式
             return element.currentStyle ? element.currentStyle[prop] : document.defaultView.getComputedStyle(element)[prop]
         },
         getScrollOffsets: function() {
-            var w = window;
-            if (w.pageXOffset != null) return { x: w.pageXOffset, y: w.pageYOffset };
-            var d = w.document;
-            if (document.compatMode == "CSS1Compat") {
-                return {
-                    x: d.documentElement.scrollLeft,
-                    y: d.documentElement.scrollTop
-                }
-            }
-            return { x: d.body.scrollLeft, y: d.body.scrollTop }
+            // IE low then 9 ,window.pageXOffset is undefined
+            var x = window.pageXOffset != undefined
+                ? window.pageXOffset 
+                : (document.documentElement || document.body || document.body.parentNode).scrollLeft
+            var y = window.pageYOffset != undefined
+                ? window.pageYOffset 
+                : (document.documentElement || document.body || document.body.parentNode).scrollTop
+            
+            return { x: x, y: y }
+           
         },
         setOpacity: function(ele, opacity) {
             if (ele.style.opacity != undefined) {
@@ -89,8 +90,8 @@
         fadeIn: function(element, speed) {
             var opacity = 0;
             util.setOpacity(element, 0)
-            var timer;
-
+            var timer = 0;
+            // requestAnimationFrame 连续动画 类似递归 通过维护一个变量决定何时取消
             function step() {
                 util.setOpacity(element, opacity += speed)
                 if (opacity < 100) {
@@ -217,8 +218,8 @@
     proto.handleBack = function() {
         var timer, self = this;
         util.addClass(self.element, 'backing');
-        cancelAnimationFrame(timer);
-        timer = requestAnimationFrame(function fn() {
+        // cancelAnimationFrame(timer);
+        var fn = function () {
             var oTop = document.body.scrollTop || document.documentElement.scrollTop;
             if (oTop > 0) {
                 document.body.scrollTop = document.documentElement.scrollTop = oTop - self.options.speed;
@@ -226,7 +227,8 @@
             } else {
                 cancelAnimationFrame(timer);
             }
-        })
+        }
+        requestAnimationFrame(fn)
     }
 
     proto.bindToTopEvent = function() {
