@@ -97,29 +97,33 @@
                 return move.y
             })
             .takeWhile(n => n <= 200)
-
+            .repeat()
         const fadeOut$ = animationFrameOut$
             .withLatestFrom(ScrollFadeOut$, (frame, moveY) => { 
                 return moveY
             })
             .scan((current, next) => lerp(current, -1))
             .map((move) => {
-                if (move.y <= 100) {
+                console.log(move)
+                if (move.y <= 100 && move.y >= 0) {
                     toTop.style.opacity = move.y/ 100
                 }
                 return move.y
             })
             .do((n) => { 
-                if(n <= 0) removeClass(toTopElm, 'backing')
+                console.log(n)
+                if(n <= 0) {
+                    removeClass(toTopElm, 'backing')
+                }
             })
-            .takeWhile(n => n > 0)
-
+            .takeWhile(n => n >= 0)
         const click$ = Rx.Observable
             .fromEvent(toTopElm, 'click')
             .map(backScrollTop)
             .mergeMap(() => {
                 return fadeOut$
             })
+            .repeat() // 初始化各个状态
         const res = fadeIn$.merge(click$)
         res.subscribe()
     </script>
