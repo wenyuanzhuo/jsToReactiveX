@@ -23,39 +23,105 @@
     <script>
         const docEle = document.documentElement
         const titleElm = document.querySelector('#title');
-        const toTop = document.getElementById("toTop");
+        const toTopElm = document.querySelector("#toTop");
         toTop.style.opacity = 0   // ...1
 
         function lerp(start, end) {
             var y = start.y + end
             return { y }
         }
-        const Scroll$ = Rx.Observable
-            .fromEvent(window, 'scroll')
-            .debounceTime(16.7)
-            .filter(() => docEle.scrollTop >= 100)
-            .map(() => ({y: docEle.scrollTop}))
-            .do(() => {
-                titleElm.innerHTML = `${docEle.scrollTop}`
-            })
-        Scroll$.subscribe()
 
-        const animationFrame$ = Rx.Observable.interval(0, Rx.Scheduler.animationFrame);
-        const smoothMove$ = animationFrame$
-            .withLatestFrom(Scroll$, (frame, moveY) => { 
+        function addClass(element, className) {
+            var classNames = element.className.split(/\s+/);
+            if (indexOf(classNames, className) == -1) {
+                classNames.push(className);
+            }
+            element.className = classNames.join(' ')
+        }
+        function removeClass (element, className) {
+            var classNames = element.className.split(/\s+/);
+            var index = indexOf(classNames, className)
+            if (index !== -1) {
+                classNames.splice(index, 1);
+            }
+            element.className = classNames.join(' ')
+        }
+
+        function indexOf (array, item) {
+            var result = -1;
+            for (var i = 0, len = array.length; i < len; i++) {
+                if (array[i] === item) {
+                    result = i;
+                    break;
+                }
+            }
+            return result;
+        }
+        function backScrollTop() {
+            addClass(toTopElm, 'backing')
+            var fn = function () {
+                var oTop = document.body.scrollTop || document.documentElement.scrollTop;
+                if (oTop > 0) {
+                    document.body.scrollTop = document.documentElement.scrollTop = oTop - 100;
+                    timer = requestAnimationFrame(fn);
+                } else {
+                    cancelAnimationFrame(timer);
+                }
+            }
+            requestAnimationFrame(fn)
+        }
+        function scroll(filterFunc) {
+            return Rx.Observable
+                .fromEvent(window, 'scroll')
+                .debounceTime(16.7)
+                .filter(filterFunc)
+                .map(() => ({y: docEle.scrollTop}))
+                .do(() => {
+                    titleElm.innerHTML = `${docEle.scrollTop}`
+                })
+        }
+        const ScrollFadeIn$ = scroll(() => docEle.scrollTop >= 100)
+        const ScrollFadeOut$ = scroll(() => docEle.scrollTop < 100)
+
+        const animationFrame$ = Rx.Observable.interval(50, Rx.Scheduler.animationFrame);
+        const animationFrameOut$ = Rx.Observable.interval(0, Rx.Scheduler.animationFrame).startWith(100);
+        const fadeIn$ = animationFrame$
+            .withLatestFrom(ScrollFadeIn$, (frame, moveY) => { 
                 return moveY
             })
             .scan((current, next) => lerp(current, 10))
             .map((move) => {
-                console.log(move.y)
-                if (move.y >= 100) { // .... 2
+                if (move.y >= 100) {
                     toTop.style.opacity = (move.y - 100)/ 100
-                    return move.y - 100
                 }
                 return move.y
             })
-            .takeWhile(n => n <= 100)
-        smoothMove$.subscribe()
+            .takeWhile(n => n <= 200)
+
+        const fadeOut$ = animationFrameOut$
+            .withLatestFrom(ScrollFadeOut$, (frame, moveY) => { 
+                return moveY
+            })
+            .scan((current, next) => lerp(current, -1))
+            .map((move) => {
+                if (move.y <= 100) {
+                    toTop.style.opacity = move.y/ 100
+                }
+                return move.y
+            })
+            .do((n) => { 
+                if(n <= 0) removeClass(toTopElm, 'backing')
+            })
+            .takeWhile(n => n > 0)
+
+        const click$ = Rx.Observable
+            .fromEvent(toTopElm, 'click')
+            .map(backScrollTop)
+            .mergeMap(() => {
+                return fadeOut$
+            })
+        const res = fadeIn$.merge(click$)
+        res.subscribe()
     </script>
 </body>
 
